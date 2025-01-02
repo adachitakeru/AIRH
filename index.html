@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3-Player Air Hockey</title>
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -34,13 +34,14 @@
 
         .score {
             position: absolute;
-            font-size: 48px;
+            font-size: 72px;
             font-weight: bold;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
-        #score1 { top: 20px; left: 50%; transform: translateX(-50%); color: #ff4444; }
-        #score2 { bottom: -80px; left: 20px; color: #44ff44; }
-        #score3 { bottom: -80px; right: 20px; color: #4444ff; }
+        #score1 { top: 40px; left: 50%; transform: translateX(-50%); color: #ff6b6b; }
+        #score2 { bottom: -100px; left: 40px; color: #51cf66; }
+        #score3 { bottom: -100px; right: 40px; color: #339af0; }
 
         #menu {
             position: fixed;
@@ -133,16 +134,17 @@
 
         .player-indicator {
             position: absolute;
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
-            padding: 10px;
-            border-radius: 4px;
-            background: rgba(0,0,0,0.5);
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.8);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
 
-        #player1-indicator { top: 20px; left: 20px; color: #ff4444; }
-        #player2-indicator { bottom: 20px; left: 20px; color: #44ff44; }
-        #player3-indicator { bottom: 20px; right: 20px; color: #4444ff; }
+        #player1-indicator { top: 20px; left: 20px; color: #ff6b6b; }
+        #player2-indicator { bottom: 20px; left: 20px; color: #51cf66; }
+        #player3-indicator { bottom: 20px; right: 20px; color: #339af0; }
     </style>
 </head>
 <body>
@@ -176,10 +178,7 @@
     <div id="game-messages"></div>
     
     
- 
- 
- 
- 
+    
 <script>
         function showJoinForm() {
             document.getElementById('join-form').style.display = 'block';
@@ -230,18 +229,20 @@
                 this.roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
                 // Generate QR Code
-                const qr = qrcode(0, 'M');
+                const qrcodeElement = document.getElementById('qr-code');
+                qrcodeElement.innerHTML = ''; // Clear previous QR code
                 const gameUrl = `${window.location.href}?room=${this.roomId}`;
-                qr.addData(gameUrl);
-                qr.make();
+                new QRCode(qrcodeElement, {
+                    text: gameUrl,
+                    width: 128,
+                    height: 128
+                });
+                qrcodeElement.style.display = 'block';
                 
-                document.getElementById('qr-code').innerHTML = qr.createImgTag();
-                document.getElementById('qr-code').style.display = 'block';
                 document.getElementById('room-code-display').innerHTML = `Room Code: ${this.roomId}`;
                 document.getElementById('instructions').innerHTML = 
                     'Share the QR code or room code with other players to join the game';
 
-                // Initialize PeerJS connection
                 this.peer = new Peer(`airhockey-${this.roomId}-1`);
                 this.setupPeerCallbacks();
                 this.updatePlayerIndicators();
@@ -262,8 +263,7 @@
                     showMessage('Game is full');
                     return;
                 }
-                
-                // Initialize PeerJS connection
+
                 this.peer = new Peer(`airhockey-${this.roomId}-${this.playerId}`);
                 this.setupPeerCallbacks();
                 this.updatePlayerIndicators();
@@ -367,8 +367,11 @@
                 document.getElementById('menu').style.display = 'none';
                 showMessage('Game Started!', 2000);
             }
-
-            setupEventListeners() {
+            
+            
+            
+            
+setupEventListeners() {
                 this.canvas.addEventListener('mousemove', (e) => {
                     const rect = this.canvas.getBoundingClientRect();
                     this.mousePos.x = e.clientX - rect.left;
@@ -387,23 +390,23 @@
                 let r = Math.sqrt(dx * dx + dy * dy);
                 let theta = Math.atan2(dy, dx);
                 
-                // 角度を0から2πの範囲に正規化
                 if (theta < 0) theta += 2 * Math.PI;
                 
-                // プレイヤーごとのベース角度
-                const playerAngle = (this.playerId - 1) * (2 * Math.PI / 3);
+                // プレイヤーごとのベース角度（ゴールの反対側）
+                const baseAngles = {
+                    1: 0,          // プレイヤー1は上部（0度）
+                    2: 2*Math.PI/3,   // プレイヤー2は右下（120度）
+                    3: 4*Math.PI/3    // プレイヤー3は左下（240度）
+                };
+                const playerAngle = baseAngles[this.playerId];
                 
-                // 移動範囲を大きく設定（約240度）
                 const sectionWidth = Math.PI * 1.33;
-                
                 let minAngle = playerAngle - sectionWidth / 2;
                 let maxAngle = playerAngle + sectionWidth / 2;
                 
-                // 半径の制限を緩和
                 const maxRadius = this.width/2 - 30;
-                const minRadius = 20; // 中心近くまで移動可能
+                const minRadius = 20;
                 
-                // 角度制限
                 if (theta < minAngle || theta > maxAngle) {
                     if (Math.abs(theta - minAngle) < Math.abs(theta - maxAngle)) {
                         theta = minAngle;
@@ -412,7 +415,6 @@
                     }
                 }
                 
-                // 半径制限
                 r = Math.max(minRadius, Math.min(r, maxRadius));
                 
                 return {
@@ -426,7 +428,6 @@
                 const deltaTime = (currentTime - this.lastUpdateTime) / 1000;
                 this.lastUpdateTime = currentTime;
 
-                // Update player position
                 if (this.playerId) {
                     const pos = this.limitToPlayerSection(this.mousePos.x, this.mousePos.y);
                     this.players[this.peer.id] = pos;
@@ -442,7 +443,6 @@
                     });
                 }
 
-                // Host updates puck physics
                 if (this.isHost) {
                     this.updatePuck(deltaTime);
                     this.checkCollisions();
@@ -522,9 +522,10 @@
                     let scorer = null;
                     const normalizedAngle = (angle + 2 * Math.PI) % (2 * Math.PI);
                     
-                    if (normalizedAngle < 2*Math.PI/3) scorer = 2;
-                    else if (normalizedAngle < 4*Math.PI/3) scorer = 3;
-                    else scorer = 1;
+                    // ゴールの位置を修正
+                    if (normalizedAngle < Math.PI/3 || normalizedAngle > 5*Math.PI/3) scorer = 1;
+                    else if (normalizedAngle < Math.PI) scorer = 2;
+                    else scorer = 3;
 
                     if (scorer) {
                         this.handleGoal(scorer);
@@ -545,6 +546,10 @@
                         });
                     }
                 });
+
+                // Update score display
+                document.getElementById(`score${scorer}`).textContent = 
+                    this.gameState.scores[scorer-1];
             }
 
             resetPuck() {
@@ -556,122 +561,89 @@
                 };
             }
 
-            startGameLoop() {
-                const loop = () => {
-                    this.update();
-                    this.draw();
-                    requestAnimationFrame(loop);
-                };
-                loop();
+            darkenColor(color, percent) {
+                const num = parseInt(color.slice(1), 16);
+                const amt = Math.round(2.55 * percent);
+                const R = Math.max(0, (num >> 16) - amt);
+                const G = Math.max(0, (num >> 8 & 0x00FF) - amt);
+                const B = Math.max(0, (num & 0x0000FF) - amt);
+                return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
             }
-
-            draw() {
+            
+            
+            
+            
+            
+draw() {
+                // Clear canvas
                 this.ctx.clearRect(0, 0, this.width, this.height);
                 
-                // Draw playing field
+                // Background gradient
+                const gradient = this.ctx.createRadialGradient(
+                    this.width/2, this.height/2, 0,
+                    this.width/2, this.height/2, this.width/2
+                );
+                gradient.addColorStop(0, '#2a2a2a');
+                gradient.addColorStop(1, '#1a1a1a');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Draw playing field border
                 this.ctx.beginPath();
                 this.ctx.arc(this.width/2, this.height/2, this.width/2-20, 0, 2*Math.PI);
-                this.ctx.strokeStyle = '#666';
-                this.ctx.lineWidth = 5;
+                this.ctx.strokeStyle = '#888';
+                this.ctx.lineWidth = 8;
                 this.ctx.stroke();
-                
-                // Draw player sections and movement areas
+
+                // Draw section lines
                 for (let i = 0; i < 3; i++) {
                     const angle = i * (2*Math.PI/3);
-                    const sectionWidth = Math.PI * 1.33;
-                    
-                    // Draw section lines
                     this.ctx.beginPath();
                     this.ctx.moveTo(this.width/2, this.height/2);
                     this.ctx.lineTo(
                         this.width/2 + (this.width/2-20) * Math.cos(angle),
                         this.height/2 + (this.width/2-20) * Math.sin(angle)
                     );
-                    this.ctx.strokeStyle = '#666';
-                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    this.ctx.lineWidth = 4;
                     this.ctx.stroke();
+                }
+
+                // Draw movement areas
+                const colors = ['#ff6b6b', '#51cf66', '#339af0'];
+                for (let i = 0; i < 3; i++) {
+                    const baseAngle = i * (2*Math.PI/3);
+                    const sectionWidth = Math.PI * 1.33;
                     
-                    // Draw movement areas
                     this.ctx.beginPath();
                     this.ctx.arc(
-                        this.width/2, 
-                        this.height/2, 
-                        this.width/2-20, 
-                        angle - sectionWidth/2, 
-                        angle + sectionWidth/2
+                        this.width/2,
+                        this.height/2,
+                        this.width/2-20,
+                        baseAngle - sectionWidth/2,
+                        baseAngle + sectionWidth/2
                     );
-                    this.ctx.strokeStyle = i === 0 ? '#ff4444' : i === 1 ? '#44ff44' : '#4444ff';
-                    this.ctx.lineWidth=  8;
+                    this.ctx.strokeStyle = colors[i] + '44';
+                    this.ctx.lineWidth = 8;
                     this.ctx.stroke();
                 }
-                
-                // Draw players
-                Object.entries(this.players).forEach(([peerId, pos], index) => {
-                    this.ctx.beginPath();
-                    this.ctx.arc(pos.x, pos.y, 20, 0, 2*Math.PI);
-                    
-                    // Calculate proper player index based on peer ID
-                    const playerNumber = parseInt(peerId.split('-')[2]);
-                    const color = playerNumber === 1 ? '#ff4444' : 
-                                playerNumber === 2 ? '#44ff44' : '#4444ff';
-                    
-                    this.ctx.fillStyle = color;
-                    this.ctx.fill();
-                    
-                    // Draw player numbers
-                    this.ctx.fillStyle = 'white';
-                    this.ctx.font = '16px Arial';
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText(playerNumber, pos.x, pos.y);
-                });
-                
-                // Draw puck with shadow
-                const puck = this.gameState.puck;
-                
-                // Draw shadow
-                this.ctx.beginPath();
-                this.ctx.arc(puck.x + 2, puck.y + 2, 10, 0, 2*Math.PI);
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                this.ctx.fill();
-                
-                // Draw puck
-                this.ctx.beginPath();
-                this.ctx.arc(puck.x, puck.y, 10, 0, 2*Math.PI);
-                this.ctx.fillStyle = '#fff';
-                this.ctx.fill();
-                
-                // Draw puck ring
-                this.ctx.beginPath();
-                this.ctx.arc(puck.x, puck.y, 8, 0, 2*Math.PI);
-                this.ctx.strokeStyle = '#ddd';
-                this.ctx.lineWidth = 2;
-                this.ctx.stroke();
-                
-                // Update scores
-                for (let i = 0; i < 3; i++) {
-                    document.getElementById(`score${i+1}`).textContent = 
-                        this.gameState.scores[i];
-                }
-                
-                // Draw goal areas with gradients
+
+                // Draw goal areas
                 for (let i = 0; i < 3; i++) {
                     const angle = i * (2*Math.PI/3);
-                    const goalWidth = Math.PI / 3; // 60 degrees
+                    const goalWidth = Math.PI / 3;
                     
-                    // Create gradient
-                    const gradient = this.ctx.createLinearGradient(
-                        this.width/2 + Math.cos(angle) * (this.width/2-40),
-                        this.height/2 + Math.sin(angle) * (this.width/2-40),
+                    const gradient = this.ctx.createRadialGradient(
                         this.width/2,
-                        this.height/2
+                        this.height/2,
+                        this.width/2 - 100,
+                        this.width/2,
+                        this.height/2,
+                        this.width/2
                     );
+                    gradient.addColorStop(0, colors[i] + '33');
+                    gradient.addColorStop(1, colors[i] + '11');
                     
-                    const color = i === 0 ? '#ff4444' : i === 1 ? '#44ff44' : '#4444ff';
-                    gradient.addColorStop(0, color + '44'); // Semi-transparent
-                    gradient.addColorStop(1, 'transparent');
-                    
-                    // Draw goal area
                     this.ctx.beginPath();
                     this.ctx.arc(
                         this.width/2,
@@ -684,10 +656,79 @@
                     this.ctx.fillStyle = gradient;
                     this.ctx.fill();
                 }
+
+                // Draw players
+                Object.entries(this.players).forEach(([peerId, pos]) => {
+                    // Draw player shadow
+                    this.ctx.beginPath();
+                    this.ctx.arc(pos.x + 4, pos.y + 4, 22, 0, 2*Math.PI);
+                    this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    this.ctx.fill();
+                    
+                    // Draw player paddle
+                    this.ctx.beginPath();
+                    this.ctx.arc(pos.x, pos.y, 22, 0, 2*Math.PI);
+                    const playerNumber = parseInt(peerId.split('-')[2]);
+                    
+                    // Create gradient for paddle
+                    const paddleGradient = this.ctx.createRadialGradient(
+                        pos.x-5, pos.y-5, 0,
+                        pos.x, pos.y, 22
+                    );
+                    paddleGradient.addColorStop(0, colors[playerNumber-1]);
+                    paddleGradient.addColorStop(1, this.darkenColor(colors[playerNumber-1], 30));
+                    
+                    this.ctx.fillStyle = paddleGradient;
+                    this.ctx.fill();
+                    
+                    // Draw player number
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = '16px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(playerNumber, pos.x, pos.y);
+                });
+
+                // Draw puck
+                const puck = this.gameState.puck;
+                
+                // Draw puck shadow
+                this.ctx.beginPath();
+                this.ctx.arc(puck.x + 4, puck.y + 4, 12, 0, 2*Math.PI);
+                this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                this.ctx.fill();
+                
+                // Draw puck body
+                this.ctx.beginPath();
+                this.ctx.arc(puck.x, puck.y, 12, 0, 2*Math.PI);
+                const puckGradient = this.ctx.createRadialGradient(
+                    puck.x-3, puck.y-3, 0,
+                    puck.x, puck.y, 12
+                );
+                puckGradient.addColorStop(0, '#ffffff');
+                puckGradient.addColorStop(1, '#dddddd');
+                this.ctx.fillStyle = puckGradient;
+                this.ctx.fill();
+                
+                // Draw puck ring
+                this.ctx.beginPath();
+                this.ctx.arc(puck.x, puck.y, 10, 0, 2*Math.PI);
+                this.ctx.strokeStyle = '#ddd';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+            }
+
+            startGameLoop() {
+                const loop = () => {
+                    this.update();
+                    this.draw();
+                    requestAnimationFrame(loop);
+                };
+                loop();
             }
         }
 
-        // URLからルームIDを確認
+        // Initialize game on window load
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const roomId = urlParams.get('room');
